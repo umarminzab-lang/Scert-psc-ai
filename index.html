@@ -835,5 +835,156 @@
 
   <!-- Non-blocking Toast Container (Never uses alert/confirm) -->
   <div id="toastWrap" class="toast-wrap" aria-live="polite"></div>
+  <!-- Single-Page Ultra-Minimal UI -->
+  <style>
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .hero { text-align: center; margin: 12px 0 20px; }
+    .app-title { margin: 0; font-weight: 800; color: var(--primary-dark, #3730a3); letter-spacing: -0.02em; }
+    .app-sub { margin: 6px 0 0; font-size: 0.88rem; color: var(--text-muted, #475569); }
+    .search-box { display: flex; gap: 8px; background: var(--bg-card, #fff); padding: 8px; border-radius: 14px; border: 1.5px solid var(--primary-border, #c7d2fe); box-shadow: 0 4px 16px rgba(67,56,202,0.08); margin-bottom: 16px; }
+    .search-box input { flex: 1; border: none; outline: none; font-size: 1rem; padding: 10px 12px; background: transparent; color: var(--text-main, #0f172a); font-family: inherit; }
+    .search-box button { background: var(--primary, #4338ca); color: #fff; border: none; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 0.95rem; cursor: pointer; white-space: nowrap; font-family: inherit; }
+    .search-box button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .card { background: var(--bg-card, #fff); border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); animation: fadeIn 0.25s ease-out; }
+    .card-head { font-weight: 800; font-size: 0.95rem; color: var(--primary-dark, #3730a3); margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+    .card-body { font-size: 0.95rem; line-height: 1.75; color: var(--text-body, #334155); white-space: pre-wrap; }
+    .card-paper { background: var(--bg-paper, #fffbeb); border-color: var(--amber-border, #fde68a); }
+    .card-paper .card-head { color: var(--amber-dark, #92400e); }
+    .card-pyq { background: var(--green-soft, #ecfdf5); border-color: var(--green-border, #a7f3d0); }
+    .card-pyq .card-head { color: var(--green-dark, #065f46); }
+    .hot-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .hot-btn { text-align: left; background: var(--primary-soft, #eef2ff); border: 1px solid var(--primary-border, #c7d2fe); color: var(--primary-dark, #3730a3); padding: 10px 12px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .loader { text-align: center; padding: 28px 12px; color: var(--text-muted, #475569); font-size: 0.92rem; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--primary-border, #c7d2fe); border-top-color: var(--primary, #4338ca); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+    .hidden { display: none; }
+  </style>
 
-  <!-- Single-Page U
+  <main class="wrap">
+    <header class="hero">
+      <h1 class="app-title">SCERT PSC AI</h1>
+      <p class="app-sub">കേരള SCERT (ക്ലാസ് 1–10) + Teacher Text + PYQs</p>
+    </header>
+
+    <form id="searchForm" class="search-box">
+      <input id="queryInput" type="text" placeholder="ടോപ്പിക്ക് തിരയുക (Malayalam / Manglish / English)..." required />
+      <button id="searchBtn" type="submit">തിരയുക</button>
+    </form>
+
+    <div id="loader" class="loader hidden">
+      <div class="spinner"></div>
+      <div>SCERT പാഠപുസ്തകങ്ങളും Teacher Text-ഉം പരിശോധിക്കുന്നു...</div>
+    </div>
+
+    <section id="results" class="hidden">
+      <article class="card">
+        <h2 class="card-head">📘 SCERT &amp; Teacher Text (സമ്പൂർണ്ണ വിവരണം)</h2>
+        <div id="boxMain" class="card-body"></div>
+      </article>
+
+      <article id="cardCuttings" class="card card-paper hidden">
+        <h2 class="card-head">✂️ പാഠപുസ്തക ബോക്സുകൾ / കൂടുതൽ വായനയ്ക്ക്</h2>
+        <div id="boxCuttings" class="card-body"></div>
+      </article>
+
+      <article class="card card-pyq">
+        <h2 class="card-head">🎯 മുൻവർഷ PSC ചോദ്യങ്ങൾ (PYQs)</h2>
+        <div id="boxPyq" class="card-body"></div>
+      </article>
+
+      <article class="card">
+        <h2 class="card-head">🔥 Hot Topics (പരീക്ഷാ സാധ്യതയുള്ളവ)</h2>
+        <div id="boxHot" class="hot-grid"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('searchForm');
+    const input = document.getElementById('queryInput');
+    const btn = document.getElementById('searchBtn');
+    const loader = document.getElementById('loader');
+    const results = document.getElementById('results');
+    const boxMain = document.getElementById('boxMain');
+    const cardCuttings = document.getElementById('cardCuttings');
+    const boxCuttings = document.getElementById('boxCuttings');
+    const boxPyq = document.getElementById('boxPyq');
+    const boxHot = document.getElementById('boxHot');
+
+    function showToast(msg, type = '') {
+      const wrap = document.getElementById('toastWrap');
+      if (!wrap) return;
+      const t = document.createElement('div');
+      t.className = 'toast ' + type;
+      t.textContent = msg;
+      wrap.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    async function runSearch(topic) {
+      const q = topic.trim();
+      if (!q) return;
+      input.value = q;
+      btn.disabled = true;
+      loader.classList.remove('hidden');
+      results.classList.add('hidden');
+
+      const prompt = `You are a Kerala PSC expert strictly grounded in Kerala SCERT Textbooks (Classes 1 to 10) and SCERT Teacher Texts.
+User Query (may be Malayalam, Manglish, or English): "${q}"
+
+Respond ONLY as valid JSON (no markdown fences) with these 4 keys in clear, natural Malayalam:
+{
+  "main": "Exhaustive, zero-omission merged explanation across all relevant SCERT classes (1-10) + Teacher Text points. Cite class & chapter inline (e.g., ക്ലാസ് 8, അധ്യായം 3). Use bullet points.",
+  "cuttings": "Exact 'കൂടുതൽ വായനയ്ക്ക്' / 'അറിയാമോ' / textbook box facts if relevant, else empty string ''",
+  "pyqs": "5 important Kerala PSC Previous Year Questions with answers related to this topic.",
+  "hotTopics": ["Clickable Topic 1 (സാധ്യത: 95%)", "Clickable Topic 2 (സാധ്യത: 90%)", "Clickable Topic 3 (സാധ്യത: 85%)", "Clickable Topic 4 (സാധ്യത: 80%)"]
+}`;
+
+      try {
+        let resp;
+        try {
+          resp = await puter.ai.chat(prompt, { model: 'gemini-2.5-flash' });
+        } catch {
+          resp = await puter.ai.chat(prompt);
+        }
+        const raw = typeof resp === 'string' ? resp : (resp?.message?.content || String(resp));
+        const cleaned = raw.replace(/```json|```/gi, '').trim();
+        const data = JSON.parse(cleaned);
+
+        boxMain.textContent = data.main || 'വിവരങ്ങൾ ലഭ്യമല്ല.';
+        if (data.cuttings && data.cuttings.trim()) {
+          boxCuttings.textContent = data.cuttings.trim();
+          cardCuttings.classList.remove('hidden');
+        } else {
+          cardCuttings.classList.add('hidden');
+        }
+        boxPyq.textContent = data.pyqs || 'PYQ വിവരങ്ങൾ ലഭ്യമല്ല.';
+
+        boxHot.innerHTML = '';
+        (data.hotTopics || []).forEach(ht => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'hot-btn';
+          b.textContent = ht;
+          b.onclick = () => runSearch(ht.replace(/\(.*?\)/g, '').trim());
+          boxHot.appendChild(b);
+        });
+
+        results.classList.remove('hidden');
+      } catch (err) {
+        showToast('തിരയുന്നതിൽ പിശക് സംഭവിച്ചു. വീണ്ടും ശ്രമിക്കുക.', 'error');
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        loader.classList.add('hidden');
+      }
+    }
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      runSearch(input.value);
+    });
+  </script>
+</body>
+</html>
+
+
